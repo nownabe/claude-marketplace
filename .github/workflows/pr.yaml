@@ -14,6 +14,7 @@ jobs:
     outputs:
       github-actions: ${{ steps.changed-files.outputs.github-actions_any_changed }}
       packages: ${{ steps.changed-files.outputs.packages_any_changed }}
+      plugins: ${{ steps.changed-files.outputs.plugins_any_changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -32,6 +33,9 @@ jobs:
               - package.json
               - bun.lock
               - tsconfig.base.json
+            plugins:
+              - plugins/**
+              - .claude-plugin/marketplace.json
 
   check-github-actions:
     needs: changed-files
@@ -47,6 +51,13 @@ jobs:
     permissions:
       contents: read
 
+  check-plugins:
+    needs: changed-files
+    if: needs.changed-files.outputs.plugins == 'true'
+    uses: ./.github/workflows/reusable-check-plugins.yaml
+    permissions:
+      contents: read
+
   status:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -54,6 +65,7 @@ jobs:
     needs:
       - check-github-actions
       - check-packages
+      - check-plugins
     permissions: {}
     steps:
       - name: Check job results
