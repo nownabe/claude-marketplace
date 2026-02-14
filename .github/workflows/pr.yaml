@@ -33,3 +33,21 @@ jobs:
     uses: ./.github/workflows/reusable-check-github-actions.yaml
     permissions:
       contents: read
+
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()
+    needs:
+      - check-github-actions
+    permissions: {}
+    steps:
+      - name: Check job results
+        env:
+          HAS_FAILURE: ${{ contains(needs.*.result, 'failure') }}
+          HAS_CANCELLED: ${{ contains(needs.*.result, 'cancelled') }}
+        run: |
+          if [[ "$HAS_FAILURE" == "true" || "$HAS_CANCELLED" == "true" ]]; then
+            echo "::error::Some jobs failed or were cancelled"
+            exit 1
+          fi
