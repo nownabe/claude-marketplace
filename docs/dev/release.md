@@ -17,13 +17,15 @@ flowchart TD
 
 ## Adding a Changeset
 
-When you make a change that should be released, add a changeset:
+Add a changeset for each change that affects a package's published code. Run the following command, commit the generated file along with your changes, and push:
 
 ```sh
 bun run changeset
 ```
 
-This will prompt you to select the affected packages and the semver bump type (patch, minor, major). A markdown file will be created in `.changeset/` — commit it along with your changes.
+This will prompt you to select the affected packages and the semver bump type (patch, minor, major). A markdown file will be created in `.changeset/`.
+
+A changeset is **not needed** for changes that don't affect published packages, such as CI workflows, documentation, or internal tooling.
 
 ## How It Works
 
