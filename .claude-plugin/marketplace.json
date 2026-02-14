@@ -1,0 +1,11 @@
+{
+  "name": "nownabe-marketplace",
+  "owner": {
+    "name": "nownabe"
+  },
+  "metadata": {
+    "description": "A collection of Claude Code plugins by nownabe",
+    "version": "0.1.0"
+  },
+  "plugins": []
+}
