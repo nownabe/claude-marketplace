@@ -1,4 +1,4 @@
-# claude-marketplace
+# claude
 
 A Claude Code plugin marketplace by nownabe.
 
@@ -7,7 +7,7 @@ A Claude Code plugin marketplace by nownabe.
 Add this marketplace:
 
 ```
-/plugin marketplace add nownabe/claude-marketplace
+/plugin marketplace add nownabe/claude
 ```
 
 Browse and install plugins:
