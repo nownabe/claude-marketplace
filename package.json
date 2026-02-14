@@ -6,12 +6,17 @@
     "build": "bun run --filter '*' build",
     "test": "bun run --filter '*' test",
     "lint": "bun run --filter '*' lint",
+    "typecheck": "bun run --filter '*' typecheck",
+    "format": "oxfmt packages/",
+    "format:check": "oxfmt --check packages/",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "bun run build && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
+    "oxfmt": "^0.32.0",
+    "oxlint": "^0.16.7",
     "typescript": "^5.7.0"
   }
 }
