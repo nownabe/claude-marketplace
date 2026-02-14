@@ -1,0 +1,16 @@
+{
+  "name": "@nownabe/tools",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "tools": "src/cli.ts"
+  },
+  "scripts": {
+    "lint": "oxlint src/",
+    "format": "oxfmt src/"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.32.0",
+    "oxlint": "^0.16.7"
+  }
+}
