@@ -1,0 +1,16 @@
+{
+  "name": "@nownabe/claude-tools",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target node && tsc --emitDeclarationOnly --outDir ./dist",
+    "test": "bun test",
+    "lint": "tsc --noEmit"
+  }
+}

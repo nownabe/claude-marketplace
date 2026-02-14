@@ -4,8 +4,8 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    "declaration": true,
     "skipLibCheck": true,
-    "types": ["bun-types"]
-  },
-  "include": ["src"]
+    "esModuleInterop": true
+  }
 }
