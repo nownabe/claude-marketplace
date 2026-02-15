@@ -33,6 +33,7 @@ plugins/
 
 - Work autonomously and create a pull request when done, then ask the user for review
 - If design decisions are needed, present the design to the user for review **before** starting implementation
+- When starting new work, always create a feature branch from the latest `main` (`git checkout main && git pull && git checkout -b <branch>`). Never branch from another feature branch to avoid including unrelated commits in the PR
 
 ## Pre-commit Checks
 
