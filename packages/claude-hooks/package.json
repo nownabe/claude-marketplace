@@ -1,6 +1,11 @@
 {
   "name": "@nownabe/claude-hooks",
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nownabe/claude",
+    "directory": "packages/claude-hooks"
+  },
   "bin": "./src/cli.ts",
   "files": [
     "src"
