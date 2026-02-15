@@ -1,27 +1,10 @@
+import { type RunCommandFn, runGh, resolveRepo, parseRepoFlag } from "./repo";
+
 export interface AddSubIssuesOptions {
   owner: string;
   repo: string;
   parentIssueNumber: number;
   subIssueNumbers: number[];
-}
-
-interface RunCommandFn {
-  (args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }>;
-}
-
-async function runGh(
-  args: string[],
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const proc = Bun.spawn(["gh", ...args], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const exitCode = await proc.exited;
-  return { stdout: stdout.trim(), stderr: stderr.trim(), exitCode };
 }
 
 export async function addSubIssues(
@@ -74,16 +57,22 @@ export async function addSubIssues(
 }
 
 export async function main(): Promise<void> {
-  const args = process.argv.slice(4);
+  const {
+    remaining: allArgs,
+    owner: flagOwner,
+    repo: flagRepo,
+  } = parseRepoFlag(process.argv.slice(2));
+  // allArgs[0] = group ("gh"), allArgs[1] = command ("add-sub-issues"), rest = positional args
+  const remaining = allArgs.slice(2);
 
-  if (args.length < 4) {
+  if (remaining.length < 2) {
     console.error(
-      "Usage: claude-tools gh add-sub-issues <owner> <repo> <parent_issue_number> <sub_issue_number>...",
+      "Usage: claude-tools gh add-sub-issues <parent_issue_number> <sub_issue_number>... [--repo <owner/repo>]",
     );
     process.exit(1);
   }
 
-  const [owner, repo, parentStr, ...subStrs] = args;
+  const [parentStr, ...subStrs] = remaining;
 
   const parentIssueNumber = Number(parentStr);
   if (Number.isNaN(parentIssueNumber)) {
@@ -95,6 +84,17 @@ export async function main(): Promise<void> {
   if (subIssueNumbers.some(Number.isNaN)) {
     console.error("Sub-issue numbers must be valid integers");
     process.exit(1);
+  }
+
+  let owner: string;
+  let repo: string;
+  if (flagOwner && flagRepo) {
+    owner = flagOwner;
+    repo = flagRepo;
+  } else {
+    const resolved = await resolveRepo();
+    owner = resolved.owner;
+    repo = resolved.repo;
   }
 
   await addSubIssues({ owner, repo, parentIssueNumber, subIssueNumbers });

@@ -1,26 +1,9 @@
+import { type RunCommandFn, runGh, resolveRepo, parseRepoFlag } from "./repo";
+
 export interface ListSubIssuesOptions {
   owner: string;
   repo: string;
   issueNumber: number;
-}
-
-interface RunCommandFn {
-  (args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }>;
-}
-
-async function runGh(
-  args: string[],
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const proc = Bun.spawn(["gh", ...args], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const exitCode = await proc.exited;
-  return { stdout: stdout.trim(), stderr: stderr.trim(), exitCode };
 }
 
 export async function listSubIssues(
@@ -43,18 +26,35 @@ export async function listSubIssues(
 }
 
 export async function main(): Promise<void> {
-  const [owner, repo, issueStr] = process.argv.slice(4);
+  const {
+    remaining: allArgs,
+    owner: flagOwner,
+    repo: flagRepo,
+  } = parseRepoFlag(process.argv.slice(2));
+  // allArgs[0] = group ("gh"), allArgs[1] = command ("list-sub-issues"), rest = positional args
+  const remaining = allArgs.slice(2);
 
-  if (!owner || !repo || !issueStr) {
-    console.error("Usage: claude-tools gh list-sub-issues <owner> <repo> <issue_number>");
+  if (remaining.length < 1) {
+    console.error("Usage: claude-tools gh list-sub-issues <issue_number> [--repo <owner/repo>]");
     process.exit(1);
   }
 
-  const issueNumber = Number(issueStr);
+  const issueNumber = Number(remaining[0]);
 
   if (Number.isNaN(issueNumber)) {
     console.error("Issue number must be a valid integer");
     process.exit(1);
+  }
+
+  let owner: string;
+  let repo: string;
+  if (flagOwner && flagRepo) {
+    owner = flagOwner;
+    repo = flagRepo;
+  } else {
+    const resolved = await resolveRepo();
+    owner = resolved.owner;
+    repo = resolved.repo;
   }
 
   await listSubIssues({ owner, repo, issueNumber });

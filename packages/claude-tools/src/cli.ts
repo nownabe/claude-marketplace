@@ -1,13 +1,17 @@
 #!/usr/bin/env bun
 
 import { commands as gh } from "./commands/gh";
+import { parseRepoFlag } from "./commands/gh/repo";
 
 const subcommands: Record<string, Record<string, () => Promise<void>>> = {
   gh,
 };
 
-const group = process.argv[2];
-const name = process.argv[3];
+// Extract --repo flag from all args so it can appear anywhere (e.g. before the subcommand name)
+const { remaining: cleanedArgs } = parseRepoFlag(process.argv.slice(2));
+
+const group = cleanedArgs[0];
+const name = cleanedArgs[1];
 
 if (!group || !(group in subcommands)) {
   const available = Object.keys(subcommands).join(", ");
