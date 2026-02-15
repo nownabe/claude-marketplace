@@ -84,10 +84,13 @@ describe("loadNotificationConfig", () => {
     rmSync(tmpDir, { recursive: true });
   });
 
-  function writeConfig(dir: string, config: object) {
+  function writeConfig(dir: string, notificationConfig: object) {
     const claudeDir = join(dir, ".claude");
     mkdirSync(claudeDir, { recursive: true });
-    writeFileSync(join(claudeDir, "notification.json"), JSON.stringify(config));
+    writeFileSync(
+      join(claudeDir, "nownabe-claude-hooks.json"),
+      JSON.stringify({ notification: notificationConfig }),
+    );
   }
 
   test("returns empty config when no config files exist", () => {
@@ -140,7 +143,7 @@ describe("loadNotificationConfig", () => {
   test("skips malformed JSON files", () => {
     const claudeDir = join(tmpDir, ".claude");
     mkdirSync(claudeDir, { recursive: true });
-    writeFileSync(join(claudeDir, "notification.json"), "not json");
+    writeFileSync(join(claudeDir, "nownabe-claude-hooks.json"), "not json");
 
     expect(loadNotificationConfig(tmpDir)).toEqual({});
   });

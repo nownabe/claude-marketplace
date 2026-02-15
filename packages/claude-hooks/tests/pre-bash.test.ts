@@ -2,32 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
-import {
-  collectAncestorDirs,
-  loadForbiddenPatterns,
-  checkForbiddenPatterns,
-  type ActivePattern,
-} from "../src/pre-bash";
-
-describe("collectAncestorDirs", () => {
-  test("returns single directory when start equals stop", () => {
-    expect(collectAncestorDirs("/home/user", "/home/user")).toEqual(["/home/user"]);
-  });
-
-  test("returns path from start to stop", () => {
-    expect(collectAncestorDirs("/home/user/projects/app", "/home/user")).toEqual([
-      "/home/user/projects/app",
-      "/home/user/projects",
-      "/home/user",
-    ]);
-  });
-
-  test("stops at filesystem root if stop is not an ancestor", () => {
-    const result = collectAncestorDirs("/tmp/a", "/other");
-    expect(result[0]).toBe("/tmp/a");
-    expect(result[result.length - 1]).toBe("/");
-  });
-});
+import { loadForbiddenPatterns, checkForbiddenPatterns, type ActivePattern } from "../src/pre-bash";
 
 describe("checkForbiddenPatterns", () => {
   const patterns: ActivePattern[] = [
@@ -80,10 +55,13 @@ describe("loadForbiddenPatterns", () => {
     rmSync(tmpDir, { recursive: true });
   });
 
-  function writeConfig(dir: string, config: object) {
+  function writeConfig(dir: string, preBashConfig: object) {
     const claudeDir = join(dir, ".claude");
     mkdirSync(claudeDir, { recursive: true });
-    writeFileSync(join(claudeDir, "pre-bash.json"), JSON.stringify(config));
+    writeFileSync(
+      join(claudeDir, "nownabe-claude-hooks.json"),
+      JSON.stringify({ preBash: preBashConfig }),
+    );
   }
 
   test("returns empty array when no config files exist", () => {
@@ -101,7 +79,7 @@ describe("loadForbiddenPatterns", () => {
     ]);
   });
 
-  test("merges patterns from multiple levels", () => {
+  test("child array replaces parent array entirely", () => {
     const projectDir = join(tmpDir, "project");
     mkdirSync(projectDir, { recursive: true });
 
@@ -113,51 +91,47 @@ describe("loadForbiddenPatterns", () => {
     });
 
     const result = loadForbiddenPatterns(projectDir);
-    expect(result).toHaveLength(2);
-    expect(result[0].pattern).toBe("\\bbaz\\b");
-    expect(result[1].pattern).toBe("\\bfoo\\b");
-  });
-
-  test("child overrides parent with disabled:true", () => {
-    const projectDir = join(tmpDir, "project");
-    mkdirSync(projectDir, { recursive: true });
-
-    writeConfig(tmpDir, {
-      forbiddenPatterns: [
-        { pattern: "\\bfoo\\b", reason: "no foo", suggestion: "use bar" },
-        { pattern: "\\bbaz\\b", reason: "no baz", suggestion: "use qux" },
-      ],
-    });
-    writeConfig(projectDir, {
-      forbiddenPatterns: [{ pattern: "\\bfoo\\b", disabled: true }],
-    });
-
-    const result = loadForbiddenPatterns(projectDir);
     expect(result).toHaveLength(1);
     expect(result[0].pattern).toBe("\\bbaz\\b");
   });
 
-  test("child overrides parent with different reason/suggestion", () => {
+  test("inherits parent patterns when child has no preBash section", () => {
     const projectDir = join(tmpDir, "project");
     mkdirSync(projectDir, { recursive: true });
 
     writeConfig(tmpDir, {
-      forbiddenPatterns: [{ pattern: "\\bfoo\\b", reason: "original", suggestion: "original" }],
+      forbiddenPatterns: [{ pattern: "\\bfoo\\b", reason: "no foo", suggestion: "use bar" }],
     });
-    writeConfig(projectDir, {
-      forbiddenPatterns: [{ pattern: "\\bfoo\\b", reason: "overridden", suggestion: "overridden" }],
-    });
+    // child has no preBash config at all — write a config with only notification
+    const claudeDir = join(projectDir, ".claude");
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
+      join(claudeDir, "nownabe-claude-hooks.json"),
+      JSON.stringify({ notification: { sounds: {} } }),
+    );
 
     const result = loadForbiddenPatterns(projectDir);
-    expect(result).toEqual([
-      { pattern: "\\bfoo\\b", reason: "overridden", suggestion: "overridden" },
-    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].pattern).toBe("\\bfoo\\b");
+  });
+
+  test("filters out disabled entries", () => {
+    writeConfig(tmpDir, {
+      forbiddenPatterns: [
+        { pattern: "\\bfoo\\b", reason: "no foo", suggestion: "use bar" },
+        { pattern: "\\bbaz\\b", disabled: true },
+      ],
+    });
+
+    const result = loadForbiddenPatterns(tmpDir);
+    expect(result).toHaveLength(1);
+    expect(result[0].pattern).toBe("\\bfoo\\b");
   });
 
   test("skips malformed JSON files", () => {
     const claudeDir = join(tmpDir, ".claude");
     mkdirSync(claudeDir, { recursive: true });
-    writeFileSync(join(claudeDir, "pre-bash.json"), "not json");
+    writeFileSync(join(claudeDir, "nownabe-claude-hooks.json"), "not json");
 
     expect(loadForbiddenPatterns(tmpDir)).toEqual([]);
   });
