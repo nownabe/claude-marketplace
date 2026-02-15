@@ -60,11 +60,13 @@ Compose the issue body using this template exactly. Fill in each section from th
 3. Compose the issue body using the template above.
 
 4. Create the issue:
+
    ```sh
    gh issue create --title "<title>" --body "<body>" --assignee "nownabe" [--label "<label>"] [--milestone "<milestone>"]
    ```
 
 5. If a parent issue is applicable, verify it is open and link via the REST API:
+
    ```sh
    SUB_ISSUE_ID=$(gh api "repos/{owner}/{repo}/issues/<number>" --jq '.id')
    gh api "repos/{owner}/{repo}/issues/<parent-number>/sub_issues" -X POST -f "sub_issue_id=$SUB_ISSUE_ID"
