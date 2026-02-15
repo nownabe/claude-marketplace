@@ -76,6 +76,13 @@ The issue body MUST follow this template. Fill in each section based on the user
 
 5. **Set parent issue** (if applicable):
    - If a parent issue is specified or identified in step 2, verify it is **not closed** (`gh issue view <parent-number> --json state`).
-   - If the parent issue is open, link it: `gh issue edit <number> --add-parent <parent-number>`.
+   - If the parent issue is open, add the created issue as a sub-issue of the parent via the REST API:
+     ```sh
+     # Get the created issue's REST API ID (integer)
+     SUB_ISSUE_ID=$(gh api "repos/{owner}/{repo}/issues/<number>" --jq '.id')
+     # Add as sub-issue to the parent
+     gh api "repos/{owner}/{repo}/issues/<parent-number>/sub_issues" \
+       -X POST -f "sub_issue_id=$SUB_ISSUE_ID"
+     ```
 
 6. Return the URL of the created issue to the user.
