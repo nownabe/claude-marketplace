@@ -2,4 +2,4 @@
 "@nownabe/claude-tools": minor
 ---
 
-Add `gh add-sub-issue` CLI command for adding sub-issues to GitHub issues
+Replace `gh add-sub-issue` with `gh add-sub-issues` to support adding multiple sub-issues at once
