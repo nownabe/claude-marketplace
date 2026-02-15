@@ -12,6 +12,11 @@
       "name": "hello-world",
       "source": "./plugins/hello-world",
       "description": "A simple hello world plugin"
+    },
+    {
+      "name": "base",
+      "source": "./plugins/base",
+      "description": "A general-purpose plugin with essential skills, commands, agents, and hooks for Claude Code"
     }
   ]
 }
