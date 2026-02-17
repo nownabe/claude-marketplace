@@ -74,7 +74,7 @@ interface HookOutput {
 // --- Feature: Forbidden Command Patterns ---
 
 export type ForbiddenPatternConfig =
-  | { reason: string; suggestion: string; disabled?: false }
+  | { reason: string; suggestion: string; type?: "glob" | "regex"; disabled?: false }
   | { disabled: true };
 
 /**
@@ -89,7 +89,7 @@ export function loadForbiddenPatterns(cwd: string): ActivePattern[] {
     .filter(([, entry]) => !entry.disabled)
     .map(([pattern, entry]) => {
       const active = entry as Exclude<ForbiddenPatternConfig, { disabled: true }>;
-      return { pattern, reason: active.reason, suggestion: active.suggestion };
+      return { pattern, reason: active.reason, suggestion: active.suggestion, type: active.type };
     });
 }
 
@@ -97,6 +97,7 @@ export interface ActivePattern {
   pattern: string;
   reason: string;
   suggestion: string;
+  type?: "glob" | "regex";
 }
 
 /**
@@ -156,10 +157,21 @@ export function globToRegExp(pattern: string): RegExp {
 /**
  * Parse a pattern string into a RegExp.
  *
+ * When `type` is specified, the pattern is interpreted accordingly:
+ * - `"regex"` → treated as a regex (no delimiters needed)
+ * - `"glob"` → treated as a glob pattern
+ *
+ * When `type` is omitted, auto-detection is used:
  * - `/pattern/` or `/pattern/flags` → treated as a regex
  * - Everything else → treated as a glob pattern
  */
-export function parsePattern(pattern: string): RegExp {
+export function parsePattern(pattern: string, type?: "glob" | "regex"): RegExp {
+  if (type === "regex") {
+    return new RegExp(pattern);
+  }
+  if (type === "glob") {
+    return globToRegExp(pattern);
+  }
   const regexMatch = pattern.match(/^\/(.+)\/([gimsuy]*)$/);
   if (regexMatch) {
     return new RegExp(regexMatch[1], regexMatch[2]);
@@ -173,8 +185,8 @@ export function checkForbiddenPatterns(
 ): DenyResult | null {
   const subCommands = splitCommand(command);
 
-  for (const { pattern, reason, suggestion } of patterns) {
-    const re = parsePattern(pattern);
+  for (const { pattern, reason, suggestion, type } of patterns) {
+    const re = parsePattern(pattern, type);
 
     for (const sub of subCommands) {
       if (re.test(sub)) {

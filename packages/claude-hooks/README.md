@@ -96,7 +96,7 @@ Add a `preBash` section to your `.claude/nownabe-claude-hooks.json`. Patterns ar
 
 #### Pattern types
 
-Two pattern formats are supported. Patterns are treated as **glob by default**; wrap in `/` delimiters for regex.
+Two pattern formats are supported. Patterns are treated as **glob by default**; wrap in `/` delimiters for regex, or use the `type` field for explicit control.
 
 **Glob patterns** (default, Claude Code style):
 
@@ -115,6 +115,27 @@ Two pattern formats are supported. Patterns are treated as **glob by default**; 
 | `/\bgit\s+-C\b/` | `git -C /tmp status`          |
 | `/\bcurl\b/`     | Any command containing `curl` |
 | `/curl/i`        | `curl`, `CURL`, `Curl`        |
+
+**Explicit `type` field** — you can also set `"type": "glob"` or `"type": "regex"` to override auto-detection. This is useful when the pattern key itself would be ambiguous (e.g., a regex without `/` delimiters or a glob path containing `/`):
+
+```json
+{
+  "preBash": {
+    "forbiddenPatterns": {
+      "\\bgit\\s*push\\b": {
+        "type": "regex",
+        "reason": "Direct push is not allowed",
+        "suggestion": "Use a pull request instead"
+      },
+      "/usr/local/*": {
+        "type": "glob",
+        "reason": "Do not modify /usr/local",
+        "suggestion": "Use a different path"
+      }
+    }
+  }
+}
+```
 
 #### Shell operator awareness
 

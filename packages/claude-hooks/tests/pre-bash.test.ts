@@ -113,6 +113,25 @@ describe("parsePattern", () => {
     expect(re.test("git status")).toBe(true);
     expect(re.test("git status --short")).toBe(false);
   });
+
+  test("explicit type: 'regex' treats pattern as regex without delimiters", () => {
+    const re = parsePattern("\\bgit\\s+-C\\b", "regex");
+    expect(re.test("git -C /tmp")).toBe(true);
+    expect(re.test("git status")).toBe(false);
+  });
+
+  test("explicit type: 'glob' treats pattern as glob even with slashes", () => {
+    const re = parsePattern("/usr/local/*", "glob");
+    expect(re.test("/usr/local/bin")).toBe(true);
+    expect(re.test("/usr/local/")).toBe(true);
+    expect(re.test("/usr/bin")).toBe(false);
+  });
+
+  test("explicit type: 'regex' allows * without glob interpretation", () => {
+    const re = parsePattern("git\\s*push", "regex");
+    expect(re.test("git push")).toBe(true);
+    expect(re.test("gitpush")).toBe(true);
+  });
 });
 
 describe("checkForbiddenPatterns", () => {
@@ -191,6 +210,35 @@ describe("checkForbiddenPatterns", () => {
         { pattern: "/curl/i", reason: "no curl", suggestion: "use fetch" },
       ];
       expect(checkForbiddenPatterns("CURL https://example.com", patterns)).not.toBeNull();
+    });
+  });
+
+  describe("with explicit type field", () => {
+    test("type: 'regex' uses pattern as regex without delimiters", () => {
+      const patterns: ActivePattern[] = [
+        {
+          pattern: "\\bgit\\s*push\\b",
+          reason: "no push",
+          suggestion: "use PR",
+          type: "regex",
+        },
+      ];
+      expect(checkForbiddenPatterns("git push", patterns)).not.toBeNull();
+      expect(checkForbiddenPatterns("gitpush", patterns)).not.toBeNull();
+      expect(checkForbiddenPatterns("git pull", patterns)).toBeNull();
+    });
+
+    test("type: 'glob' forces glob interpretation", () => {
+      const patterns: ActivePattern[] = [
+        {
+          pattern: "rm -rf /tmp/*",
+          reason: "no rm in tmp",
+          suggestion: "be careful",
+          type: "glob",
+        },
+      ];
+      expect(checkForbiddenPatterns("rm -rf /tmp/foo", patterns)).not.toBeNull();
+      expect(checkForbiddenPatterns("rm -rf /home", patterns)).toBeNull();
     });
   });
 });
