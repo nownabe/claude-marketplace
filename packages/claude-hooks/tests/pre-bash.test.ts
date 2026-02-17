@@ -2,41 +2,162 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
-import { loadForbiddenPatterns, checkForbiddenPatterns, type ActivePattern } from "../src/pre-bash";
+import {
+  loadForbiddenPatterns,
+  checkForbiddenPatterns,
+  globToRegExp,
+  splitCommand,
+  type ActivePattern,
+} from "../src/pre-bash";
 
-describe("checkForbiddenPatterns", () => {
-  const patterns: ActivePattern[] = [
-    {
-      pattern: "\\bgit\\s+-C\\b",
-      reason: "git -C is forbidden",
-      suggestion: "Use cd instead",
-    },
-    {
-      pattern: "\\brm\\s+-rf\\s+/\\b",
-      reason: "rm -rf / is forbidden",
-      suggestion: "Be more specific",
-    },
-  ];
-
-  test("returns null when no patterns match", () => {
-    expect(checkForbiddenPatterns("git status", patterns)).toBeNull();
+describe("splitCommand", () => {
+  test("returns single command as-is", () => {
+    expect(splitCommand("git status")).toEqual(["git status"]);
   });
 
-  test("returns deny result for matching pattern", () => {
-    const result = checkForbiddenPatterns("git -C /tmp status", patterns);
-    expect(result).toEqual({
-      reason: "git -C is forbidden",
-      suggestion: "Use cd instead",
+  test("splits on &&", () => {
+    expect(splitCommand("git add . && git commit -m msg")).toEqual([
+      "git add .",
+      "git commit -m msg",
+    ]);
+  });
+
+  test("splits on ||", () => {
+    expect(splitCommand("cmd1 || cmd2")).toEqual(["cmd1", "cmd2"]);
+  });
+
+  test("splits on ;", () => {
+    expect(splitCommand("cmd1 ; cmd2")).toEqual(["cmd1", "cmd2"]);
+  });
+
+  test("splits on |", () => {
+    expect(splitCommand("ls | grep foo")).toEqual(["ls", "grep foo"]);
+  });
+
+  test("splits on mixed operators", () => {
+    expect(splitCommand("a && b || c ; d | e")).toEqual(["a", "b", "c", "d", "e"]);
+  });
+});
+
+describe("globToRegExp", () => {
+  test("exact match", () => {
+    const re = globToRegExp("git status");
+    expect(re.test("git status")).toBe(true);
+    expect(re.test("git status --short")).toBe(false);
+    expect(re.test("git statusx")).toBe(false);
+  });
+
+  test("trailing wildcard with space enforces word boundary", () => {
+    const re = globToRegExp("git commit *");
+    expect(re.test("git commit -m msg")).toBe(true);
+    expect(re.test("git commit")).toBe(true);
+    expect(re.test("git commitall")).toBe(false);
+  });
+
+  test("trailing wildcard without space matches any suffix", () => {
+    const re = globToRegExp("git*");
+    expect(re.test("git")).toBe(true);
+    expect(re.test("gitk")).toBe(true);
+    expect(re.test("git status")).toBe(true);
+  });
+
+  test("wildcard in the middle", () => {
+    const re = globToRegExp("git * main");
+    expect(re.test("git checkout main")).toBe(true);
+    expect(re.test("git merge main")).toBe(true);
+    expect(re.test("git main")).toBe(false);
+  });
+
+  test("deprecated :* syntax is equivalent to space-*", () => {
+    const re = globToRegExp("git commit:*");
+    expect(re.test("git commit -m msg")).toBe(true);
+    expect(re.test("git commit")).toBe(true);
+    expect(re.test("git commitall")).toBe(false);
+  });
+
+  test("escapes regex special characters", () => {
+    const re = globToRegExp("npm run build (prod)");
+    expect(re.test("npm run build (prod)")).toBe(true);
+    expect(re.test("npm run build prod")).toBe(false);
+  });
+
+  test("wildcard at the beginning", () => {
+    const re = globToRegExp("* --version");
+    expect(re.test("node --version")).toBe(true);
+    expect(re.test("bun --version")).toBe(true);
+  });
+});
+
+describe("checkForbiddenPatterns", () => {
+  describe("with glob patterns", () => {
+    const patterns: ActivePattern[] = [
+      {
+        pattern: "git -C *",
+        reason: "git -C is forbidden",
+        suggestion: "Use cd instead",
+      },
+      {
+        pattern: "rm -rf /*",
+        reason: "rm -rf / is forbidden",
+        suggestion: "Be more specific",
+      },
+    ];
+
+    test("returns null when no patterns match", () => {
+      expect(checkForbiddenPatterns("git status", patterns)).toBeNull();
+    });
+
+    test("returns deny result for matching pattern", () => {
+      const result = checkForbiddenPatterns("git -C /tmp status", patterns);
+      expect(result).toEqual({
+        reason: "git -C is forbidden",
+        suggestion: "Use cd instead",
+      });
+    });
+
+    test("checks each sub-command for shell operators", () => {
+      const result = checkForbiddenPatterns("echo hello && rm -rf /tmp", patterns);
+      expect(result?.reason).toBe("rm -rf / is forbidden");
+    });
+
+    test("does not match pattern across shell operators", () => {
+      const patterns: ActivePattern[] = [
+        { pattern: "safe-cmd malicious-cmd", reason: "forbidden", suggestion: "none" },
+      ];
+      // "safe-cmd malicious-cmd" as a single pattern should not match
+      // when they are separate sub-commands
+      expect(checkForbiddenPatterns("safe-cmd && malicious-cmd", patterns)).toBeNull();
+    });
+
+    test("matches sub-command independently", () => {
+      const patterns: ActivePattern[] = [
+        { pattern: "rm -rf *", reason: "forbidden", suggestion: "none" },
+      ];
+      expect(checkForbiddenPatterns("echo hello && rm -rf /tmp", patterns)).not.toBeNull();
+    });
+
+    test("returns null for empty patterns", () => {
+      expect(checkForbiddenPatterns("git -C /tmp", [])).toBeNull();
     });
   });
 
-  test("returns first matching pattern", () => {
-    const result = checkForbiddenPatterns("git -C /tmp && rm -rf /", patterns);
-    expect(result?.reason).toBe("git -C is forbidden");
-  });
+  describe("with regex patterns", () => {
+    const patterns: ActivePattern[] = [
+      {
+        pattern: "\\bgit\\s+-C\\b",
+        reason: "git -C is forbidden",
+        suggestion: "Use cd instead",
+      },
+    ];
 
-  test("returns null for empty patterns", () => {
-    expect(checkForbiddenPatterns("git -C /tmp", [])).toBeNull();
+    test("matches regex pattern", () => {
+      const result = checkForbiddenPatterns("git -C /tmp status", patterns);
+      expect(result?.reason).toBe("git -C is forbidden");
+    });
+
+    test("returns null when regex does not match", () => {
+      expect(checkForbiddenPatterns("git status", patterns)).toBeNull();
+    });
   });
 });
 

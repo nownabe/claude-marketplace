@@ -99,13 +99,77 @@ export interface ActivePattern {
   suggestion: string;
 }
 
+/**
+ * Split a command string on shell operators (`&&`, `||`, `;`, `|`),
+ * trimming each sub-command.
+ */
+export function splitCommand(command: string): string[] {
+  return command.split(/\s*(?:&&|\|\||[;|])\s*/).filter(Boolean);
+}
+
+/**
+ * Convert a Claude Code–style glob pattern to a RegExp.
+ *
+ * Rules (matching Claude Code's Bash permission syntax):
+ * - `*` is a wildcard
+ * - `cmd *` (space before `*`) enforces a word boundary:
+ *   matches `cmd` alone or `cmd <anything>`
+ * - `cmd*` (no space) matches any string starting with `cmd`
+ * - `:*` is treated as equivalent to ` *` (deprecated syntax)
+ */
+export function globToRegExp(pattern: string): RegExp {
+  // Normalise deprecated `:*` suffix to ` *`
+  const normalised = pattern.replace(/:(\*)/, " $1");
+
+  // Split on `*` to process segments
+  const parts = normalised.split("*");
+  let regex = "^";
+
+  for (let i = 0; i < parts.length; i++) {
+    // Escape regex special characters in the literal segment
+    const escaped = parts[i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    if (i < parts.length - 1) {
+      // Check whether the character before the `*` is a space
+      if (parts[i].endsWith(" ")) {
+        // Drop the trailing space from the escaped segment
+        const isLast = i === parts.length - 2 && parts[i + 1] === "";
+        if (isLast) {
+          // Trailing `cmd *` → match `cmd` alone or `cmd <space><anything>`
+          regex += escaped.slice(0, -1) + "(\\s.*)?";
+        } else {
+          // Middle `cmd * suffix` → require space + content
+          regex += escaped.slice(0, -1) + "\\s.*";
+        }
+      } else {
+        regex += escaped + ".*";
+      }
+    } else {
+      regex += escaped;
+    }
+  }
+
+  regex += "$";
+  return new RegExp(regex);
+}
+
+function isGlobPattern(pattern: string): boolean {
+  return pattern.includes("*");
+}
+
 export function checkForbiddenPatterns(
   command: string,
   patterns: ActivePattern[],
 ): DenyResult | null {
+  const subCommands = splitCommand(command);
+
   for (const { pattern, reason, suggestion } of patterns) {
-    if (new RegExp(pattern).test(command)) {
-      return { reason, suggestion };
+    const re = isGlobPattern(pattern) ? globToRegExp(pattern) : new RegExp(pattern);
+
+    for (const sub of subCommands) {
+      if (re.test(sub)) {
+        return { reason, suggestion };
+      }
     }
   }
   return null;
