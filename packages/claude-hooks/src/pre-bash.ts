@@ -182,24 +182,26 @@ export function parsePattern(pattern: string, type?: "glob" | "regex"): RegExp {
 export function checkForbiddenPatterns(
   command: string,
   patterns: ActivePattern[],
-): DenyResult | null {
+): DenyResult[] | null {
   const subCommands = splitCommand(command);
+  const results: DenyResult[] = [];
 
   for (const { pattern, reason, suggestion, type } of patterns) {
     const re = parsePattern(pattern, type);
 
     for (const sub of subCommands) {
       if (re.test(sub)) {
-        return { reason, suggestion };
+        results.push({ reason, suggestion });
+        break;
       }
     }
   }
-  return null;
+  return results.length > 0 ? results : null;
 }
 
 // --- Checker Pipeline ---
 
-type Checker = (command: string) => DenyResult | null;
+type Checker = (command: string) => DenyResult[] | null;
 
 // --- Main ---
 
@@ -212,14 +214,16 @@ export async function main() {
   const checkers: Checker[] = [(cmd) => checkForbiddenPatterns(cmd, forbiddenPatterns)];
 
   for (const checker of checkers) {
-    const result = checker(command);
-    if (result) {
+    const results = checker(command);
+    if (results) {
+      const reasons = results.map((r) => `${r.reason} ${r.suggestion}`).join("\n");
+      const suggestions = results.map((r) => r.suggestion).join("\n");
       const output: HookOutput = {
         hookSpecificOutput: {
           hookEventName: "PreToolUse",
           permissionDecision: "deny",
-          permissionDecisionReason: `${result.reason} ${result.suggestion}`,
-          additionalContext: result.suggestion,
+          permissionDecisionReason: reasons,
+          additionalContext: suggestions,
         },
       };
       console.log(JSON.stringify(output));

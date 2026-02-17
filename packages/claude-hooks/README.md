@@ -143,6 +143,10 @@ Two pattern formats are supported. Patterns are treated as **glob by default**; 
 
 Commands are split on shell operators (`&&`, `||`, `;`, `|`) and each sub-command is checked independently. This means a pattern like `safe-cmd malicious-cmd` will not match `safe-cmd && malicious-cmd`.
 
+#### Multiple pattern matching
+
+When a command matches multiple forbidden patterns, all matching patterns are reported at once. This allows Claude to see every violated rule in a single response and adjust accordingly, rather than hitting them one at a time on retries.
+
 #### Config merging
 
 Because `forbiddenPatterns` is an object, patterns from parent and child directories are deep merged. Child directories can:

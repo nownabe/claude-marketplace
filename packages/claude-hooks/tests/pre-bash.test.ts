@@ -155,15 +155,17 @@ describe("checkForbiddenPatterns", () => {
 
     test("returns deny result for matching pattern", () => {
       const result = checkForbiddenPatterns("git -C /tmp status", patterns);
-      expect(result).toEqual({
-        reason: "git -C is forbidden",
-        suggestion: "Use cd instead",
-      });
+      expect(result).toEqual([
+        {
+          reason: "git -C is forbidden",
+          suggestion: "Use cd instead",
+        },
+      ]);
     });
 
     test("checks each sub-command for shell operators", () => {
       const result = checkForbiddenPatterns("echo hello && rm -rf /tmp", patterns);
-      expect(result?.reason).toBe("rm -rf / is forbidden");
+      expect(result?.[0].reason).toBe("rm -rf / is forbidden");
     });
 
     test("does not match pattern across shell operators", () => {
@@ -198,7 +200,7 @@ describe("checkForbiddenPatterns", () => {
 
     test("matches regex pattern", () => {
       const result = checkForbiddenPatterns("git -C /tmp status", patterns);
-      expect(result?.reason).toBe("git -C is forbidden");
+      expect(result?.[0].reason).toBe("git -C is forbidden");
     });
 
     test("returns null when regex does not match", () => {
@@ -210,6 +212,21 @@ describe("checkForbiddenPatterns", () => {
         { pattern: "/curl/i", reason: "no curl", suggestion: "use fetch" },
       ];
       expect(checkForbiddenPatterns("CURL https://example.com", patterns)).not.toBeNull();
+    });
+  });
+
+  describe("with multiple matching patterns", () => {
+    test("returns all matching patterns", () => {
+      const patterns: ActivePattern[] = [
+        { pattern: "git *", reason: "git is forbidden", suggestion: "use something else" },
+        { pattern: "git push *", reason: "push is forbidden", suggestion: "use PR" },
+        { pattern: "npm *", reason: "npm is forbidden", suggestion: "use bun" },
+      ];
+      const result = checkForbiddenPatterns("git push origin main", patterns);
+      expect(result).toEqual([
+        { reason: "git is forbidden", suggestion: "use something else" },
+        { reason: "push is forbidden", suggestion: "use PR" },
+      ]);
     });
   });
 
