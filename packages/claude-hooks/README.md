@@ -8,6 +8,40 @@ A collection of [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-co
 npm install -g @nownabe/claude-hooks
 ```
 
+## Configuration
+
+All hooks share a single config file: `.claude/nownabe-claude-hooks.json` (or `.claude/nownabe-claude-hooks.local.json` for machine-local overrides).
+
+```json
+{
+  "preBash": {
+    "forbiddenPatterns": [
+      {
+        "pattern": "\\bgit\\s+-C\\b",
+        "reason": "git -C is not allowed",
+        "suggestion": "Run git commands from the working directory directly"
+      }
+    ]
+  },
+  "notification": {
+    "sounds": {
+      "permission_prompt": "C:\\Windows\\Media\\Windows Notify System Generic.wav",
+      "*": "C:\\Windows\\Media\\tada.wav"
+    }
+  }
+}
+```
+
+Config files are loaded hierarchically from the current working directory up to `$HOME`. Files are deep merged — objects are recursively merged (child keys override parent keys), while arrays and primitives are replaced entirely by the child value.
+
+File priority (highest first, per directory from CWD to HOME):
+
+1. `CWD/.claude/nownabe-claude-hooks.local.json`
+2. `CWD/.claude/nownabe-claude-hooks.json`
+3. `<parent>/.claude/nownabe-claude-hooks.local.json`
+4. `<parent>/.claude/nownabe-claude-hooks.json`
+5. ... up to `$HOME`
+
 ## Hooks
 
 ### `pre-bash` — Forbidden Command Patterns
@@ -38,27 +72,23 @@ Add to your `settings.json` (`~/.claude/settings.json`, `.claude/settings.json`,
 
 #### Configuration
 
-Create `.claude/pre-bash.json` in your home directory or any ancestor directory of your project:
+Add a `preBash` section to your `.claude/nownabe-claude-hooks.json`:
 
 ```json
 {
-  "forbiddenPatterns": [
-    {
-      "pattern": "\\bgit\\s+-C\\b",
-      "reason": "git -C is not allowed",
-      "suggestion": "Run git commands from the working directory directly"
-    }
-  ]
+  "preBash": {
+    "forbiddenPatterns": [
+      {
+        "pattern": "\\bgit\\s+-C\\b",
+        "reason": "git -C is not allowed",
+        "suggestion": "Run git commands from the working directory directly"
+      }
+    ]
+  }
 }
 ```
 
-Child directories override parent patterns. To disable a parent pattern:
-
-```json
-{
-  "forbiddenPatterns": [{ "pattern": "\\bgit\\s+-C\\b", "disabled": true }]
-}
-```
+When a child directory defines `forbiddenPatterns`, it replaces the parent's array entirely. To inherit everything, omit the `preBash` section.
 
 ### `notification` — OS-Native Notifications
 
@@ -88,13 +118,15 @@ Add to your `settings.json`:
 
 #### Configuration
 
-Optionally create `.claude/notification.json` to customize notification sounds:
+Add a `notification` section to your `.claude/nownabe-claude-hooks.json`:
 
 ```json
 {
-  "sounds": {
-    "permission_prompt": "C:\\Windows\\Media\\Windows Notify System Generic.wav",
-    "*": "C:\\Windows\\Media\\tada.wav"
+  "notification": {
+    "sounds": {
+      "permission_prompt": "C:\\Windows\\Media\\Windows Notify System Generic.wav",
+      "*": "C:\\Windows\\Media\\tada.wav"
+    }
   }
 }
 ```
@@ -102,7 +134,7 @@ Optionally create `.claude/notification.json` to customize notification sounds:
 - `permission_prompt` — Sound for permission prompts
 - `*` — Default sound for all other notification types (e.g., `stop`, task completion)
 
-Config files are loaded hierarchically from the current working directory up to `$HOME`. Child directories override parent values.
+Sound keys from child directories override parent keys (object merge).
 
 #### Supported Platforms
 

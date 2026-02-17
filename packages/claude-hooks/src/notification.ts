@@ -5,9 +5,9 @@
  * in the directory hierarchy (CWD up to HOME), with child overrides.
  */
 
-import { resolve, dirname, join } from "path";
 import { existsSync, readFileSync } from "fs";
 import { execFileSync } from "child_process";
+import { loadConfig } from "./config";
 
 // --- Types ---
 
@@ -24,8 +24,6 @@ interface NotificationConfig {
 export type Platform = "wsl" | "macos" | "linux" | "unknown";
 
 // --- Constants ---
-
-const CONFIG_FILENAME = "notification.json";
 
 const DEFAULT_SOUNDS: Record<string, string> = {
   permission_prompt: "C:\\Windows\\Media\\Windows Notify System Generic.wav",
@@ -51,44 +49,9 @@ export function detectPlatform(): Platform {
 
 // --- Config Loading ---
 
-function collectAncestorDirs(startDir: string, stopDir: string): string[] {
-  const start = resolve(startDir);
-  const stop = resolve(stopDir);
-  const dirs: string[] = [];
-  let current = start;
-  for (;;) {
-    dirs.push(current);
-    if (current === stop) break;
-    const parent = dirname(current);
-    if (parent === current) break;
-    current = parent;
-  }
-  return dirs;
-}
-
 export function loadNotificationConfig(cwd: string): NotificationConfig {
-  const home = process.env.HOME ?? "";
-  if (!home) return {};
-
-  const dirs = collectAncestorDirs(cwd, home);
-  const mergedSounds: Record<string, string> = {};
-
-  // Load from least specific (HOME) to most specific (CWD),
-  // so child values override parent values.
-  for (const dir of dirs.reverse()) {
-    const filePath = join(dir, ".claude", CONFIG_FILENAME);
-    if (!existsSync(filePath)) continue;
-    try {
-      const config: NotificationConfig = JSON.parse(readFileSync(filePath, "utf-8"));
-      if (config.sounds) {
-        Object.assign(mergedSounds, config.sounds);
-      }
-    } catch {
-      // skip malformed files
-    }
-  }
-
-  return Object.keys(mergedSounds).length > 0 ? { sounds: mergedSounds } : {};
+  const config = loadConfig(cwd);
+  return config.notification ?? {};
 }
 
 // --- Sound Resolution ---

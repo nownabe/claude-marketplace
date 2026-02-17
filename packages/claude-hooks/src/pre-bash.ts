@@ -4,8 +4,7 @@
  * if any checker rejects it.
  */
 
-import { resolve, dirname, join } from "path";
-import { existsSync, readFileSync } from "fs";
+import { loadConfig } from "./config";
 
 // --- Types ---
 
@@ -78,62 +77,13 @@ export type ForbiddenPatternEntry =
   | { pattern: string; reason: string; suggestion: string; disabled?: false }
   | { pattern: string; disabled: true };
 
-const CONFIG_FILENAME = "pre-bash.json";
-
-interface PreBashConfig {
-  forbiddenPatterns?: ForbiddenPatternEntry[];
-}
-
 /**
- * Collect directories from `startDir` up to (and including) `stopDir`.
- * Returns paths from startDir (most specific) to stopDir (least specific).
- */
-export function collectAncestorDirs(startDir: string, stopDir: string): string[] {
-  const start = resolve(startDir);
-  const stop = resolve(stopDir);
-  const dirs: string[] = [];
-  let current = start;
-  for (;;) {
-    dirs.push(current);
-    if (current === stop) break;
-    const parent = dirname(current);
-    if (parent === current) break; // reached filesystem root
-    current = parent;
-  }
-  return dirs;
-}
-
-/**
- * Load pre-bash.json config files from CWD up to HOME and merge
- * forbiddenPatterns. Files are loaded from CWD (most specific) to
- * HOME (least specific). For duplicate pattern strings, the first
- * occurrence (child) wins, allowing child-level files to override
- * parent patterns (e.g. disable them).
+ * Load forbidden patterns from the unified config.
+ * Reads `config.preBash.forbiddenPatterns` and filters out disabled entries.
  */
 export function loadForbiddenPatterns(cwd: string): ActivePattern[] {
-  const home = process.env.HOME ?? "";
-  if (!home) return [];
-
-  const dirs = collectAncestorDirs(cwd, home);
-  const seen = new Set<string>();
-  const patterns: ForbiddenPatternEntry[] = [];
-
-  for (const dir of dirs) {
-    const filePath = join(dir, ".claude", CONFIG_FILENAME);
-    if (!existsSync(filePath)) continue;
-    try {
-      const config: PreBashConfig = JSON.parse(readFileSync(filePath, "utf-8"));
-      for (const entry of config.forbiddenPatterns ?? []) {
-        if (!seen.has(entry.pattern)) {
-          seen.add(entry.pattern);
-          patterns.push(entry);
-        }
-      }
-    } catch {
-      // skip malformed files
-    }
-  }
-
+  const config = loadConfig(cwd);
+  const patterns = config.preBash?.forbiddenPatterns ?? [];
   return patterns.filter((entry): entry is ActivePattern => !entry.disabled);
 }
 
