@@ -15,13 +15,12 @@ All hooks share a single config file: `.claude/nownabe-claude-hooks.json` (or `.
 ```json
 {
   "preBash": {
-    "forbiddenPatterns": [
-      {
-        "pattern": "\\bgit\\s+-C\\b",
+    "forbiddenPatterns": {
+      "git -C *": {
         "reason": "git -C is not allowed",
         "suggestion": "Run git commands from the working directory directly"
       }
-    ]
+    }
   },
   "notification": {
     "sounds": {
@@ -32,7 +31,7 @@ All hooks share a single config file: `.claude/nownabe-claude-hooks.json` (or `.
 }
 ```
 
-Config files are loaded hierarchically from the current working directory up to `$HOME`. Files are deep merged — objects are recursively merged (child keys override parent keys), while arrays and primitives are replaced entirely by the child value.
+Config files are loaded hierarchically from the current working directory up to `$HOME`. Files are deep merged — objects are recursively merged (child keys override parent keys), while primitives are replaced entirely by the child value.
 
 File priority (highest first, per directory from CWD to HOME):
 
@@ -46,7 +45,7 @@ File priority (highest first, per directory from CWD to HOME):
 
 ### `pre-bash` — Forbidden Command Patterns
 
-A `PreToolUse` hook that blocks dangerous or unwanted Bash commands based on configurable regex patterns.
+A `PreToolUse` hook that blocks dangerous or unwanted Bash commands based on configurable patterns.
 
 #### Setup
 
@@ -72,23 +71,71 @@ Add to your `settings.json` (`~/.claude/settings.json`, `.claude/settings.json`,
 
 #### Configuration
 
-Add a `preBash` section to your `.claude/nownabe-claude-hooks.json`:
+Add a `preBash` section to your `.claude/nownabe-claude-hooks.json`. Patterns are specified as an object keyed by pattern string:
 
 ```json
 {
   "preBash": {
-    "forbiddenPatterns": [
-      {
-        "pattern": "\\bgit\\s+-C\\b",
+    "forbiddenPatterns": {
+      "git -C *": {
         "reason": "git -C is not allowed",
         "suggestion": "Run git commands from the working directory directly"
+      },
+      "git push --force *": {
+        "reason": "Force push is dangerous",
+        "suggestion": "Use --force-with-lease instead"
+      },
+      "rm -rf /*": {
+        "reason": "Dangerous delete from root",
+        "suggestion": "Be more specific about the target path"
       }
-    ]
+    }
   }
 }
 ```
 
-When a child directory defines `forbiddenPatterns`, it replaces the parent's array entirely. To inherit everything, omit the `preBash` section.
+#### Pattern types
+
+Two pattern formats are supported:
+
+**Glob patterns** (Claude Code style) — patterns containing `*`:
+
+| Pattern        | Matches                               | Does not match  |
+| -------------- | ------------------------------------- | --------------- |
+| `git commit *` | `git commit -m msg`, `git commit`     | `git commitall` |
+| `git*`         | `git`, `gitk`, `git status`           |                 |
+| `git * main`   | `git checkout main`, `git merge main` | `git main`      |
+| `* --version`  | `node --version`, `bun --version`     |                 |
+| `git commit:*` | Same as `git commit *` (deprecated)   |                 |
+
+**Regex patterns** — patterns without `*`:
+
+| Pattern        | Matches                       |
+| -------------- | ----------------------------- |
+| `\bgit\s+-C\b` | `git -C /tmp status`          |
+| `\bcurl\b`     | Any command containing `curl` |
+
+#### Shell operator awareness
+
+Commands are split on shell operators (`&&`, `||`, `;`, `|`) and each sub-command is checked independently. This means a pattern like `safe-cmd malicious-cmd` will not match `safe-cmd && malicious-cmd`.
+
+#### Config merging
+
+Because `forbiddenPatterns` is an object, patterns from parent and child directories are deep merged. Child directories can:
+
+- **Add** new patterns alongside inherited ones
+- **Override** an inherited pattern's reason/suggestion
+- **Disable** an inherited pattern:
+
+```json
+{
+  "preBash": {
+    "forbiddenPatterns": {
+      "git push --force *": { "disabled": true }
+    }
+  }
+}
+```
 
 ### `notification` — OS-Native Notifications
 
