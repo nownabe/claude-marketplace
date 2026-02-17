@@ -10,6 +10,30 @@
           }
         ]
       }
+    ],
+    "Notification": [
+      {
+        "matcher": "idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bunx @nownabe/claude-hooks notification",
+            "async": true,
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bunx @nownabe/claude-hooks notification",
+            "async": true,
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }
