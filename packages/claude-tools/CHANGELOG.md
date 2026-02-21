@@ -1,5 +1,12 @@
 # @nownabe/claude-tools
 
+## 0.2.0
+
+### Minor Changes
+
+- fb7d773: Add `gh get-release` command to fetch GitHub release information
+- aee79b2: Add `resolve-tag-sha` command to resolve GitHub tags to commit SHAs
+
 ## 0.1.0
 
 ### Minor Changes
